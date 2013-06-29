@@ -1,0 +1,88 @@
+Paper Helicopter Optimization Project
+========================================================
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring web pages (click the **MD** toolbar button for help on Markdown).
+
+When you click the **Knit HTML** button a web page will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r include=FALSE}
+# This chunk loads libraries that are needed below.  include=FALSE means that neither the code nor the output of the code will be included in the output document.
+library(RCurl)
+library(ggplot2)
+library(pwr)
+```
+
+```{r echo=FALSE}
+# This chunk downloads the data from your google spreadsheet.  Replace the URL below 
+# with the URL from your copy of the spreadsheet.
+csv_data<-getURL("https://docs.google.com/spreadsheet/pub?key=0Avq8qkMnj5AOdGlTLWFVbVZWamx3VWxPZk1pdm9oVFE&single=true&gid=0&output=csv")
+helidata<-read.csv(textConnection(csv_data))
+helidata<-transform(helidata,heli_id=factor(heli_id))
+```
+
+This plot is a histogram of flight times for each helicopter.  The "binwidth", or width of each bar is 0.1 seconds.  
+
+```{r fig.width=7, fig.height=4}
+ggplot(helidata,aes(flight_time, group=heli_id, fill=heli_id))+
+  geom_histogram(binwidth=0.1, position="dodge")
+```
+
+This plot shows a smoothed estimate of the distribution of flight time for each helicopter.  
+
+```{r fig.width=7, fig.height=4}
+ggplot(helidata,aes(flight_time, group=heli_id, fill=heli_id))+
+  geom_density(alpha=1/2)
+```
+
+Is one of your helis better than another?
+-----------------------------------------
+
+```{r}
+# Change these to the ids you want to test.  The test will test you whether heli_id_a 
+# has longer flights than heli_id_b, so put the one you think has longer flights as heli_id_one.
+heli_id_a<-"one"
+heli_id_b<-"three"
+
+# Don't change anything below
+heli_a_data<-helidata$flight_time[helidata$heli_id==heli_id_a]
+heli_b_data<-helidata$flight_time[helidata$heli_id==heli_id_b]
+```
+
+Helicopter "`r heli_id_a`" has an average flight time of `r mean(heli_a_data)` based on `r length(heli_b_data)` flights.  Helicopter "`r heli_id_b`" has an average flight time of `r mean(heli_a_data)` based on `r length(heli_a_data)` flights.  It looks like heli "`r if (mean(heli_a_data) > mean(heli_b_data)) { heli_id_a } else {heli_id_b}`" is faster, but is the result statistically significant?
+
+The code below does a Student's t-test to determine whether helicopter "`r heli_id_a`" has a longer average flight time and heliocopter "`r heli_id_b`".  The output might look all scary, but the only thing you really care about is the p-value.  For this test, the p-value is the probability that the average flight time of helicopter "`r heli_id_a`" is longer than helicopter "`r heli_id_a`" just due to random variation.  If the p-value is very small (traditionally, less than 0.05), then the there is a very low probability that the result is just due to chance, and you can be confident that helicopter "`r heli_id_a`" is really better than helicopter "`r heli_id_b`".  In other words, you can say that your results are statistically significant.
+
+```{r}
+test_result<-t.test(heli_a_data, heli_b_data, alternative="greater")
+test_result
+```
+
+The p-value from your data is `r test_result$p.value`, which `r if (test_result$p.value < 0.05) { "is" } else { "is not" }` less than 0.05, so you `r if (test_result$p.value < 0.05) { "can" } else { "can not" }` be confident that helicopter "`r heli_id_a`" is better than "`r heli_id_b`".  If you're not confident, more data might help you decide.
+
+How much more data will I need?
+-------------------------------
+
+This is a area of statistics known as power analysis.  The larger the difference in the average flight times, the fewer test flights you need to be confident in your results.  The code below does a power analysis based on your data so far and predicts the number of flights you'll need to get a statistically significant result.  If your average flight times are very close, you might need a **lot** of flights to be sure that one is better than the other.
+
+```{r}
+d<-abs(mean(heli_a_data)-mean(heli_b_data))/sd(c(heli_a_data,heli_b_data))
+pwr.t.test(d=d, sig.level=0.05, power=0.95, alternative="greater")
+```
+
+
+Modeling the response surface
+-----------------------------
+
+```{r}
+model<-lm(flight_time ~ rotor_length + rotor_width + rotor_length * rotor_width + rotor_length**2 + rotor_width**2 , data=helidata)
+summary(model)
+```
+
+```{r}
+to_predict<-expand.grid(rotor_width=seq(0.5,4,0.5),
+                        rotor_length=seq(0.5,9.5,0.5))
+to_predict$predicted_flight_time<-predict(model, to_predict)
+ggplot(to_predict,aes(rotor_length,rotor_width,fill=predicted_flight_time))+geom_tile()
+```
+
+

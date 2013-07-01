@@ -1,14 +1,16 @@
 Paper Helicopter Optimization Project
 ========================================================
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring web pages (click the **MD** toolbar button for help on Markdown).
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring web pages (click the **MD** toolbar button for help on Markdown).  When you click the **Knit HTML** button a web page will be generated that includes both content as well as the output of any embedded R code chunks within the document. 
 
-When you click the **Knit HTML** button a web page will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Looking at your data
+--------------------
 
 ```{r include=FALSE}
 # This chunk loads libraries that are needed below.  include=FALSE means that neither the code nor the output of the code will be included in the output document.
 library(RCurl)
 library(ggplot2)
+library(plyr)
 library(pwr)
 ```
 
@@ -18,6 +20,7 @@ library(pwr)
 csv_data<-getURL("https://docs.google.com/spreadsheet/pub?key=0Avq8qkMnj5AOdGlTLWFVbVZWamx3VWxPZk1pdm9oVFE&single=true&gid=0&output=csv")
 helidata<-read.csv(textConnection(csv_data))
 helidata<-transform(helidata,heli_id=factor(heli_id))
+heli_means<-ddply(helidata,.(heli_id,rotor_width,rotor_length),summarize,avg_flight = mean(flight_time)) 
 ```
 
 This plot is a histogram of flight times for each helicopter.  The "binwidth", or width of each bar is 0.1 seconds.  
@@ -36,6 +39,9 @@ ggplot(helidata,aes(flight_time, group=heli_id, fill=heli_id))+
 
 Is one of your helis better than another?
 -----------------------------------------
+
+One you've tested a few designs, you'l almost certainly be in the situation where one of the designs seems better in that it has a longer average flight duration, but because you have taken so few flights, you can't be sure that it really is better (maybe it's worse, but random variation has worked against, making it look better when more data would demonstrate that it really is worse).
+
 
 ```{r}
 # Change these to the ids you want to test.  The test will tell you whether heli_id_a 
@@ -118,16 +124,20 @@ pwr.t.test(d=d, sig.level=0.05, power=0.95, alternative="greater")
 Modeling the response surface
 -----------------------------
 
-If we call the flight time $F$, and the rotor length and width $l$, and $w$ respectively, then one possible model for predicting flight times is:
+If we call the flight time $F$, and the rotor length and width $l$, and $w$ respectively, then the simplest possible model for predicting flight times is:
 
-$F(l,w) \sim \beta_1 l + \beta_2 w + \beta_3 l w$
+$F(l,w) \sim \beta_1 l + \beta_2 w$
 
-Where $\beta_1$, $\beta_2$, $\beta_3$ are unknown coefficients to be fit from the data.  The call to *lm* below fits this model from your data.
+Where $\beta_1$, and $\beta_2$ are unknown coefficients to be fit from your observed data.  The call to *lm* below fits this model from your data.
 
 ```{r}
-model<-lm(flight_time ~ rotor_length + rotor_width + rotor_length:rotor_width, data=helidata)
+model<-lm(flight_time ~ rotor_length + rotor_width, data=helidata)
 summary(model)
 ```
+
+The coefficients of this simple model suggest that adding every centimeter added to the length of your rotor changes the average flight time by `r model$coefficients[2]` seconds, and each centimeter of width changes the average flight time by  `r model$coefficients[3]` seconds.
+
+We can ask the model for predicitons of every combination of rotor length and width in 0.5 cm increments.
 
 ```{r}
 to_predict<-expand.grid(rotor_width=seq(0.5,4,0.5),
@@ -136,11 +146,44 @@ to_predict$predicted_flight_time<-predict(model, to_predict)
 max_row<-to_predict[which.max(to_predict$predicted_flight_time),]
 ```
 
-Based on the data you're gathered so far, the optimal helicopter has a rotor width of `r max_row$rotor_width`, a rotor length of `r max_row$rotor_length`, and will fly for `r max_row$predicted_flight_time` seconds.  Of course, if you haven't gathered very much data, or you haven't tried a variety of different lengths and widths, this prediction could be wildly wrong.
-
-Below is a heat map showing predicted flight times for every combination of width and length.  Brighter colors indicate longer predicted flight times.
+Below is a heat map showing predicted flight time for each combination of width and length.  In optimization, this is known as the response surface.  Brighter colors indicate longer predicted flight times.  The average flight times for the combinations you've tested are shows as orange circles.  The size of the circle shows the averge of your observed flights for that combination. 
 
 ```{r}
-ggplot(to_predict,aes(rotor_length,rotor_width,fill=predicted_flight_time))+geom_tile()
+ggplot(to_predict,aes(rotor_length,rotor_width))+
+  geom_tile(aes(fill=predicted_flight_time))+
+  geom_point(aes(size=avg_flight), data=heli_means, color="orange")+
+  geom_text(aes(label=heli_id), data=heli_means,hjust=0,vjust=1)
 ```
+
+Based on this model and the data you've gathered so far, the optimal helicopter has a rotor width of `r max_row$rotor_width`, a rotor length of `r max_row$rotor_length`, and will fly for `r max_row$predicted_flight_time` seconds.  
+
+Under this simple model, the predicted reponse surface will always be a plane, and the model will always predict that the optimal helicopter is in one corner of the space.  This can't be right, and is an artifact of the too-simple mathmetical form of the model.  Still, this model does have some value.  In particular, suggests that `r if (model$coefficients[2] > model$coefficients[3]) { "length" } else { "width" }` is the more important variable since it has a larger coefficient.
+
+A better model for this problem is:
+
+$F(l,w) \sim \beta_1 l + \beta_2 w + \beta_3 l^2 + \beta_4 w^2$
+
+```{r}
+model2<-lm(flight_time ~ rotor_length + rotor_width + I(rotor_length^2) + I(rotor_width^2), data=helidata)
+summary(model2)
+to_predict2<-expand.grid(rotor_width=seq(0.5,4,0.5),
+                        rotor_length=seq(0.5,9.5,0.5))
+to_predict2$predicted_flight_time<-predict(model2, to_predict2)
+max_row2<-to_predict2[which.max(to_predict2$predicted_flight_time),]
+```
+
+Fitting this model requires more data, sampled from more combinations of length and width (which is why I started with the simpler model).  If you haven't collected much data yet, you may get NA coefficients from the fit, you may get a warning about a "rank-deficient fit", and the model predictions might be non-sensical (like the optimal helicopter has the skinniest, stubbiest possible wings).  If this is happening, just get more data and things will probably start to make sense.
+
+This model allows for some curvature of the response surface.  The best-fit response surface for your current data is plotted below.
+
+```{r}
+ggplot(to_predict2,aes(rotor_length,rotor_width))+
+  geom_tile(aes(fill=predicted_flight_time))+
+  geom_point(aes(size=avg_flight), data=heli_means, color="orange")+
+  geom_text(aes(label=heli_id), data=heli_means,hjust=0,vjust=1)
+```
+
+Based on this model and the data you've gathered so far, the optimal helicopter has a rotor width of `r max_row2$rotor_width`, a rotor length of `r max_row2$rotor_length`, and will fly for `r max_row2$predicted_flight_time` seconds.  
+
+
 

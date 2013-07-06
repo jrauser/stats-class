@@ -1,0 +1,32 @@
+Drop Results
+============
+
+```{r include=FALSE}
+# This chunk loads libraries that are needed below.  include=FALSE means that neither the code nor the output of the code will be included in the output document.
+library(RCurl)
+library(ggplot2)
+library(plyr)
+```
+
+```{r echo=FALSE}
+# This chunk downloads the data from your google spreadsheet.  Replace the URL below 
+# with the URL from your copy of the spreadsheet.
+csv_data<-getURL("https://docs.google.com/spreadsheet/pub?key=0Avq8qkMnj5AOdHhJQ081OUNkVXlXMjFrYjRHNG41ekE&output=csv")
+dropdata<-read.csv(textConnection(csv_data))
+drops<-data.frame(flight_time=with(dropdata,rep(flight_time, count)))
+```
+
+This plot is a histogram of flight times.  The "binwidth", or width of each bar is 0.1 seconds.  
+
+```{r fig.width=7, fig.height=4}
+ggplot(drops,aes(flight_time))+geom_histogram(binwidth=0.1)
+```
+
+This plot shows a smoothed estimate of the distribution of flight time.  
+
+```{r fig.width=7, fig.height=4}
+stdev<-sd(drops$flight_time)
+avg<-mean(drops$flight_time)
+ggplot(drops,aes(flight_time))+geom_density(fill="black")+xlim(avg-4*stdev,avg+4*stdev)
+```
+

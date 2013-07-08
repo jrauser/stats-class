@@ -30,3 +30,20 @@ avg<-mean(drops$flight_time)
 ggplot(drops,aes(flight_time))+geom_density(fill="black")+xlim(avg-4*stdev,avg+4*stdev)
 ```
 
+
+<!--
+The formula for a 95% confidence interval around an estimated average is:
+
+$\mu \pm 1.96 \frac{s}{\sqrt{n}}$
+
+Where $\mu$ is a sample average, $s$ is the sample standard deviation, and $n$ is the sample size.  The $s/\sqrt{n}$ part is call the [standard error of the mean](http://en.wikipedia.org/wiki/Standard_error#Standard_error_of_the_mean)
+
+Now we can compute a confidence interval around the the average flight time.
+
+```r
+std_error<-sd(drops$flight_time)/sqrt(length(drops$flights_time))
+std_error
+```
+
+In proper statistical parlance, we believe that if we conducted many trial drops like the one we just did with the same people timing the drop, 95 times out of 100, the average of the sample would be within
+-->

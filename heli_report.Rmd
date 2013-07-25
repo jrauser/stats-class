@@ -1,14 +1,14 @@
 ```{r echo=FALSE}
 # This is the configuration section.  There are two bits of configuration you'll 
 
-# Paste the publishing URL from your copy of the data spreadsheet below
+# Paste the publishing URL from your copy of the data spreadsheet below. 
+# PUT THE URL BETWEEN THE DOUBLE QUOTES ON LINE 6
 csv_url<-"https://docs.google.com/spreadsheet/pub?key=0Avq8qkMnj5AOdGlTLWFVbVZWamx3VWxPZk1pdm9oVFE&single=true&gid=0&output=csv"
 
 # Once you're collected some data, change these to the heli ids you want to compare.  The ids are
-# from the first column of your data spreadsheet. The test will tell you whether heli_id_long 
-# has longer flights than heli_id_short, so put the one you think has longer flights as heli_id_long.
-heli_id_long<-"one"
-heli_id_short<-"two"
+# from the first column of your data spreadsheet.
+heli_id_one<-"6x9.5"
+heli_id_two<-"5x8"
 
 ##################################################################################
 # You should not have to modify anything below this point.
@@ -54,12 +54,23 @@ ggplot(helidata,aes(flight_time, group=heli_id, fill=heli_id))+
 Phase 1: Is one really better?
 -------------------------------
 
-One you've tested a few designs, you'l almost certainly be in the situation where one of the designs seems better in that it has a longer average flight duration, but because you have taken so few flights, you can't be sure that it really is better (maybe it's worse, but random variation has worked against, making it look better when more data would demonstrate that it really is worse).
+Once you've tested a few designs, you'll almost certainly be in the situation where one of the designs seems better in that it has a longer average flight duration, but because you have taken so few flights, you can't be sure that it really is better (maybe it's worse, but random variation has worked against, making it look better when more data would demonstrate that it really is worse).
 
 
-```{r}
-heli_long_data<-with(helidata, flight_time[heli_id==heli_id_long])
-heli_short_data<-with(helidata, flight_time[heli_id==heli_id_short])
+```{r include=FALSE}
+heli_one_data<-with(helidata, flight_time[heli_id==heli_id_one])
+heli_two_data<-with(helidata, flight_time[heli_id==heli_id_two])
+if (mean(heli_one_data) > mean(heli_two_data)) {
+  heli_id_long <- heli_id_one
+  heli_id_short <- heli_id_two
+  heli_long_data <- heli_one_data
+  heli_short_data <- heli_two_data
+} else {
+  heli_short_data <- heli_one_data
+  heli_long_data <- heli_two_data
+  heli_id_short <- heli_id_one
+  heli_id_long <- heli_id_two
+}
 ```
 
 ```{r echo=FALSE}
@@ -73,9 +84,9 @@ heli_short_mean<-ifelse(heli_short_n>0,mean(heli_short_data),NA)
 
 `r if (heli_short_n == 0) { print("**WARNING: The id you entered for heli_id_short on line 12 does not exist in your data.  The results below will probably be nonsensical and full of errors!**  ") }`
 
-Helicopter "`r heli_id_long`" has an average flight time of `r heli_long_mean` based on `r heli_long_n` flights.  Helicopter "`r heli_id_short`" has an average flight time of `r heli_short_mean` based on `r heli_short_n` flights.  You think that heli "`r heli_id_long`" is better, but is the result statistically significant, or could it have happened just due to random chance?
+**Helicopter "`r heli_id_long`" has an average flight time of `r heli_long_mean` based on `r heli_long_n` flights.  Helicopter "`r heli_id_short`" has an average flight time of `r heli_short_mean` based on `r heli_short_n` flights.**  You think that heli "`r heli_id_long`" is better, but is the result statistically significant, or could it have happened just due to random chance?
 
-Well, if there is no difference in the two helicopters, then the labels "`r heli_id_long`" and "`r heli_id_short`" are meaningless, and we could randomly shuffle the labels around and get results similar to our actual observations.  If we randomly shuffle the labels around many time and consistently get results different from our observations, then we know that the labels *do* have meaning, and heli "`r heli_id_long`" really does have longer flights on average.
+Well, if there is no difference in the two helicopters, then the labels "`r heli_id_long`" and "`r heli_id_short`" are meaningless, and we could randomly shuffle the labels around and get results similar to our actual observations.  If we randomly shuffle the labels around many times and consistently get results different from our observations, then we know that the labels *do* have meaning, and heli "`r heli_id_long`" really does have longer flights on average.
 
 ```{r}
 # Extract a subset of the original data containing just the results from the two helis of interest
@@ -103,7 +114,7 @@ if (any(is.nan(simulated_differences))) {
 }
 ```
 
-Now that we have a `r N` simluated reshufflings, we can plot a histogram of the simulated results.  The histogram shows gives you a sense for what you might have observed if there was no difference between your two helis -- that is, if the labels in the first column of your spreadsheet were random.  Your actual observed difference between the two helicopters is marked with a red vertical line.  If the red line is in the middle of the distribution, then your real data isn't very different from what could have occured just by chance.  If the red line is at the extreme edge of the distribution, then it's very unlikely that what you observed could have happened by chance, and you can be confident than heli "`r heli_id_long`" really has longer flights on average than heli "`r heli_id_short`".
+Now that we have a `r N` simulated reshufflings, we can plot a histogram of the simulated results.  The histogram shows gives you a sense for what you might have observed if there was no difference between your two helis -- that is, if the labels in the first column of your spreadsheet were random.  Your actual observed difference between the two helicopters is marked with a red vertical line.  If the red line is in the middle of the distribution, then your real data isn't very different from what could have occurred just by chance.  If the red line is at the extreme edge of the distribution, then it's very unlikely that what you observed could have happened by chance, and you can be confident than heli "`r heli_id_long`" really has longer flights on average than heli "`r heli_id_short`".
 
 ```{r echo=FALSE, fig.height=4}
 if (!any(is.na(simulated_differences))) {
@@ -115,17 +126,17 @@ if (!any(is.na(simulated_differences))) {
 }
 ```
 
-`r ct<-sum(simulated_differences>=(heli_long_mean-heli_short_mean)); ct` out of `r N` random shufflings resulted in a difference as large or larger than your actual observations.  Traditionally, a statistician would say a result if it could occur at random less than 5%, or `r round(N*0.05)` times out of `r N`, so your result `r if (ct < round(N*0.05)) { "is" } else { "is not"}` statistically significant.
+`r ct<-sum(simulated_differences>=(heli_long_mean-heli_short_mean)); ct` out of `r N` random shufflings resulted in a difference as large or larger than your actual observations.  Traditionally, a statistician would say a result is statistically significant if it could occur at random less than 5%, or `r round(N*0.05)` times out of `r N`, so your result `r if (ct < round(N*0.05)) { "is" } else { "is not"}` statistically significant.
 
-### An analytical test
+### An analytic test
 
 If you're interested in another statistical test known as Student's t-test you can read this part.  Otherwise you can safely skip it at no loss.
 
-The test we conducted above is known as a permutation test, because we took many random permutations of the data.  There is another test we could have run to decide whether the difference in average flights times was statistically significant, Student's t-test.  If you took statistics class in school, you probably learned the t-test.  I strongly prefer the permutation test. One reason is that it's more flexible (it works with any summary statistic, not just the mean), but the main reason to prefer the permuatation test is that it's so beautifully intuitive.
+The test we conducted above is known as a permutation test, because we took many random permutations of the data.  There is another test we could have run to decide whether the difference in average flights times was statistically significant, Student's t-test.  If you took statistics class in school, you probably learned the t-test.  I strongly prefer the permutation test. One reason is that it's more flexible (it works with any summary statistic, not just the mean), but the main reason to prefer the permutation test is that it's so beautifully intuitive.
 
-That said, it's good to know Student's t-test because it is so widely known and used, and also because it is computationally more efficient (and just as powerful if your data adhere to its assumptions).  I cannot possibly explain how the t-test works here, full development requires a semsester long class with lots of calculus.  I will just demonstrate running the test in R.
+That said, it's good to know Student's t-test because it is so widely known and used, and also because it is computationally more efficient (and just as powerful if your data adhere to its assumptions).  I cannot possibly explain how the t-test works here, full development requires a semester long class with lots of calculus.  I will just demonstrate running the test in R.
 
-The code below does a Student's t-test to determine whether helicopter "`r heli_id_long`" has a longer average flight time and heliocopter "`r heli_id_short`".  The output might look all scary, but the only thing you really care about is the p-value.  For this test, the p-value is the probability that the average flight time of helicopter "`r heli_id_long`" is longer than helicopter "`r heli_id_long`" just due to random variation.  If the p-value is very small (traditionally, less than 0.05), then the there is a very low probability that the result is just due to chance, and you can be confident that helicopter "`r heli_id_long`" is really better than helicopter "`r heli_id_short`".  In other words, you can say that your results are statistically significant.
+The code below does a Student's t-test to determine whether helicopter "`r heli_id_long`" has a longer average flight time and helicopter "`r heli_id_short`".  The output might look all scary, but the only thing you really care about is the p-value.  For this test, the p-value is the probability that the average flight time of helicopter "`r heli_id_long`" is longer than helicopter "`r heli_id_long`" just due to random variation.  If the p-value is very small (traditionally, less than 0.05), then the there is a very low probability that the result is just due to chance, and you can be confident that helicopter "`r heli_id_long`" is really better than helicopter "`r heli_id_short`".  In other words, you can say that your results are statistically significant.
 
 ```{r}
 test_result<-t.test(heli_long_data, heli_short_data, alternative="greater")
@@ -162,20 +173,20 @@ model<-lm(flight_time ~ rotor_length + rotor_width, data=helidata)
 summary(model)
 ```
 
-The coefficients of this simple model suggest that adding every centimeter added to the length of your rotor changes the average flight time by `r model$coefficients[2]` seconds, and each centimeter of width changes the average flight time by  `r model$coefficients[3]` seconds.
+The coefficients of this simple model suggest that adding every 1/2 centimeter added to the length of your rotor changes the average flight time by `r model$coefficients[2]` seconds, and each 1/2 centimeter of width changes the average flight time by  `r model$coefficients[3]` seconds.
 
-We can ask the model for predicitons of every combination of rotor length and width in 0.5 cm increments.
+We can ask the model for predictions of every combination of rotor length and width in 0.5 cm increments.
 
 ```{r}
-to_predict<-expand.grid(rotor_width=seq(0.5,4,0.5),
+to_predict<-expand.grid(rotor_width=seq(0.5,6,0.5),
                         rotor_length=seq(0.5,9.5,0.5))
 to_predict$predicted_flight_time<-predict(model, to_predict)
 max_row<-to_predict[which.max(to_predict$predicted_flight_time),]
 ```
 
-Below is a heat map showing predicted flight time for each combination of width and length.  In optimization, this is known as the response surface.  Brighter colors indicate longer predicted flight times.  The average flight times for the combinations you've tested are shows as orange circles.  The size of the circle shows the averge of your observed flights for that combination. 
+Below is a heat map showing predicted flight time for each combination of width and length.  In optimization, this is known as the response surface.  Brighter colors indicate longer predicted flight times.  The average flight times for the combinations you've tested are shows as orange circles.  The size of the circle shows the average of your observed flights for that combination. 
 
-```{r}
+```{r fig.height=5}
 ggplot(to_predict,aes(rotor_length,rotor_width))+
   geom_tile(aes(fill=predicted_flight_time))+
   geom_point(aes(size=avg_flight), data=heli_means, color="orange")+
@@ -184,7 +195,7 @@ ggplot(to_predict,aes(rotor_length,rotor_width))+
 
 Based on this model and the data you've gathered so far, the optimal helicopter has a rotor width of `r max_row$rotor_width`, a rotor length of `r max_row$rotor_length`, and will fly for `r max_row$predicted_flight_time` seconds.  
 
-Under this simple model, the predicted reponse surface will always be a plane, and the model will always predict that the optimal helicopter is in one corner of the space.  This can't be right, and is an artifact of the too-simple mathmetical form of the model.  Still, this model does have some value.  In particular, suggests that `r if (model$coefficients[2] > model$coefficients[3]) { "length" } else { "width" }` is the more important variable since it has a larger coefficient.
+Under this simple model, the predicted response surface will always be a plane, and the model will always predict that the optimal helicopter is in one corner of the space.  This can't be right, and is an artifact of the too-simple mathematical form of the model.  Still, this model does have some value.  In particular, suggests that `r if (model$coefficients[2] > model$coefficients[3]) { "length" } else { "width" }` is the more important variable since it has a larger coefficient.
 
 A better model for this problem is:
 
@@ -193,7 +204,7 @@ $F(l,w) \sim \beta_1 l + \beta_2 w + \beta_3 l^2 + \beta_4 w^2$
 ```{r}
 model2<-lm(flight_time ~ rotor_length + rotor_width + I(rotor_length^2) + I(rotor_width^2), data=helidata)
 summary(model2)
-to_predict2<-expand.grid(rotor_width=seq(0.5,4,0.5),
+to_predict2<-expand.grid(rotor_width=seq(0.5,6,0.5),
                         rotor_length=seq(0.5,9.5,0.5))
 to_predict2$predicted_flight_time<-predict(model2, to_predict2)
 max_row2<-to_predict2[which.max(to_predict2$predicted_flight_time),]
@@ -203,7 +214,7 @@ Fitting this model requires more data, sampled from more combinations of length 
 
 This model allows for some curvature of the response surface.  The best-fit response surface for your current data is plotted below.
 
-```{r}
+```{r fig.height=5}
 ggplot(to_predict2,aes(rotor_length,rotor_width))+
   geom_tile(aes(fill=predicted_flight_time))+
   geom_point(aes(size=avg_flight), data=heli_means, color="orange")+
